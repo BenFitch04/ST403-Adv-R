@@ -1,0 +1,213 @@
+---
+title: "CA3"
+author: "Ben Fitzpatrick 23453144"
+output: html_document
+---
+```{r, echo=FALSE, results='hide'}
+library(tidyverse)
+library(dplyr)
+```
+## Q1
+1.
+```{r}
+library(IMIFA)
+class(olive)
+```
+Dataset is a data frame
+```{r}
+class(olive) <- c("mydf", class(olive))
+class(olive)
+```
+ 
+2.
+```{r}
+print.mydf <- function(x, n = 5) {
+  if(n > 5){
+    stop("n must be <= 5")
+}
+
+  r <- min(n, nrow(x))
+  c <- min(n, ncol(x))
+  #in case dataset is smaller than n
+  x <- x[1:r, 1:c]
+  
+  class(x) <- "data.frame"
+  print(x)
+}
+print.mydf(olive)
+```
+
+3.
+```{r}
+print(olive[-1, ])
+```
+since method only prints at most 5 rows/columns, 
+when we try to print all but the first row, we end up with rows 2-6
+
+4.
+```{r}
+print.mydf <- function(x, n = 5) {
+  if (n > nrow(x) || n > ncol(x)) {
+    warning("n exceeds the number of rows or columns in the data frame")}
+
+  r <- min(n, nrow(x))
+  c <- min(n, ncol(x))
+  #in case dataset is smaller than n
+  message("Printing ", r, " rows and ", c, " cols.")
+
+  x <- x[1:r, 1:c]
+  
+  class(x) <- "data.frame"
+  print(x)}
+
+print(olive, n = 100)
+```
+
+5.
+```{r}
+max_dens <- function(x, ...) {
+  UseMethod("max_dens")}
+#Create the generic max_dens()
+
+max_dens.density <- function(x, ...) { #match arguements
+
+  yMax <- max(x$y) #density paek
+  xMax <- x$x[which.max(x$y)] #location of that peak
+
+  c(y = yMax, x = xMax)}
+
+max_dens(density(olive$palmitic))
+```
+
+6.
+```{r}
+#all numeric data
+data <- olive |>
+  select(palmitic, palmitoleic, stearic, oleic, linoleic, linolenic, arachidic, eicosenoic)
+
+pmatrix <- vapply(data, 
+                  function(x) {
+                    dens <- density(x, kernel="epanechnikov")
+                            max_dens(dens)},
+                  numeric(2))
+pmatrix
+```
+
+7.
+```{r}
+p <- density(olive$palmitic, kernel = "epanechnikov")
+peak <- max_dens(p)
+
+plot(dens)
+segments(x0 = peak["x"], y0 = 0,
+         x1 = peak["x"], y1 = peak["y"], col = "red")
+```
+
+## Q2
+1.
+```{r}
+f <- function(x) {
+  x + 3}
+
+g <- function(x) {
+  x^2 - 4}
+```
+
+2.
+```{r}
+curve(f, from = -4, to = 4, ylim = c(-6, 12))
+curve(g, from = -4, to = 4, add = TRUE)
+```
+
+3.
+```{r}
+h <- function(x) {f(x) - g(x)} #roots when this = 0
+r1 <- uniroot(h, interval = c(-4, 0), tol = 1e-08) #1st root
+r2 <- uniroot(h, interval = c(2, 4), tol = 1e-08) #2nd root
+
+r1$root; r2$root
+```
+
+4.
+```{r}
+farea <- integrate(f, lower = r1$root, upper = r2$root)
+garea <- integrate(g, lower = r1$root, upper = r2$root)
+
+farea$value - garea$value
+```
+
+## Q3
+1.
+```{r}
+df <- with(mtcars, data.frame(y=mpg, x1=disp, x2=hp, x3=wt))
+head(df)
+```
+
+2.
+```{r}
+nll_lm <- function(data, par){
+
+  B <- par[1:4] #B0, B1, B2, B3
+  sigma <- par[5]
+  fitted <- B[1] + B[2]*data$x1 + B[3]*data$x2 + B[4]*data$x3
+
+  resid <- data$y - fitted
+
+  -sum(dnorm(resid, mean = 0, sd = sigma, log = TRUE))}
+```
+
+3.
+```{r}
+start <- c(mean(df$y), 0, 0, 0, sd(df$y))
+
+low <- c(-Inf, -Inf, -Inf, -Inf, 1e-8) #sd cant be <= 0
+
+up <- c(Inf, Inf, Inf, Inf, Inf)
+
+fit <- optim(par = start, fn = nll_lm, data = df,
+  method = "L-BFGS-B", lower = low, upper = up)
+
+fit$par #B0, B1, B2, B3, sd
+```
+
+4.
+We want to find the parameter values that maximise the likelihood.
+optim() minimises a function.
+Minimising negative log-likelihood gets same result as maximising the log-likelihood.
+
+5.
+```{r}
+X <- cbind(1, df$x1, df$x2, df$x3)
+y <- df$y
+
+beta_m <- solve(t(X) %*% X) %*% t(X) %*% y
+beta_m
+```
+
+6.
+```{r}
+fitted_m <- X %*% beta_m #predicted y for each row
+resid_m <- y - fitted_m # e = y - XB
+
+RSS <- sum(resid_m^2)
+sqrt(RSS / nrow(df))
+```
+
+7.
+The estimates for the coefficients are close because both methods use the same least squares matrix equation
+They differ when estimating s.d because max likelihood divides RSS by total observations while the other divides by residual degrees of freedom 
+
+8.
+```{r}
+fit <- optim(par = start, fn = nll_lm, data = df,
+  method = "L-BFGS-B", lower = low, upper = up, hessian = TRUE)
+
+H <- fit$hessian
+cov_m <- solve(H)
+sqrt(diag(cov_m)[1:4])
+```
+
+
+
+
+

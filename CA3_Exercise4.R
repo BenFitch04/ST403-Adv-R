@@ -62,3 +62,10 @@ fit <- optim(par = start, fn = nll_lm, data = df,
 H <- fit$hessian
 cov_m <- solve(H)
 sqrt(diag(cov_m)[1:4])
+
+#EXERCISE 4
+lm_fit <- lm(y ~ x1 + x2 + x3, data = df)
+
+coef(lm_fit) #regression coefficients
+
+summary(lm_fit)$sigma #residual s.d

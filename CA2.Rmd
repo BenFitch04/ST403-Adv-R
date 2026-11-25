@@ -1,0 +1,233 @@
+---
+title: "CA2"
+author: "Ben Fitzpatrick, 23453144"
+output: html_document
+---
+
+## Q1
+1.
+```{r}
+#simulations
+n <- 10000
+
+x1 <- runif(n, min = 1, max = 3)
+#function
+y1 <- x1^2
+(3 - 1) * mean(y1) #MC estimate
+(3 - 1) * sd(y1) / sqrt(n) #SE
+27/3 - 1/3 #exact 
+```
+```{r}
+x2 <- runif(n, min = 1, max = pi)
+#function
+y2 <- exp(x2)
+(pi - 1) * mean(y2) #MC estimate
+(pi - 1) * sd(y2) / sqrt(n) #SE
+exp(pi) - exp(1) #exact
+```
+```{r}
+#exponential rand nums
+x3 <- rexp(n, rate = 1)
+
+#importance sampling
+#(adjust function using prob density)
+y3 <- exp(x3 - x3^3)
+mean(y3) #MC estimate
+sd(y3) / sqrt(n) #SE
+```
+```{r}
+x4 <- runif(n, min = 0, max = 1)
+#function
+y4 <- (1 / sqrt(2 * pi)) * exp(-x4^2 / 2)
+mean(y4) #MC estimaet
+sd(y4) / sqrt(n) #SE 
+```
+
+Monte Carlo integration gives estimates that should be near the exact values but the estimates aren't identical because they are from randomly generated samples.
+
+2.
+```{r}
+library(statmod)
+
+#Gauss-Laguerre quadrature
+GL <- statmod::gauss.quad(n = 20, kind = "laguerre", alpha = -2/3)
+
+sum(GL$weights * (1/3)) #GL estimate integral
+
+gamma(1/3) /3 #exact
+mean(y3) #MC estimate
+```
+
+3.
+```{r}
+#generate Gaussian quadrature nodes and weights from uniform distrib
+gq1 <- statmod::gauss.quad.prob(n = 20, dist = "uniform")
+
+(3 - 1) * sum(gq1$weights * (1 + 2*gq1$nodes)^2) #integral (square nodes X²)
+27/3 - 1/3 #exact 
+
+gq2 <- statmod::gauss.quad.prob(n = 20, dist = "uniform") #2nd integral
+
+(pi - 1) * sum(gq2$weights * exp(1 +(pi -1)*gq2$nodes)) #integral
+exp(pi) - exp(1) #exact
+```
+
+## Q2
+1.
+```{r}
+# pdf of Kumaraswamy
+dkumaraswamy <- function(x, a, b) {
+  result <- a* b * x^(a - 1)* (1 - x^a)^(b - 1)
+  return(result)
+}
+
+dkumaraswamy(x =c(0.3, 0.6, 0.9), a = 1, b = 2)
+```
+
+2.
+```{r}
+#default arguments
+dkumaraswamy2 <- function(x, a = 1, b = 1) {
+  #check if a and b valid
+  if (a <= 0 || b <= 0) {
+    stop("a and b must be greater than zero")}
+
+  # if both are 1 it has unif distrib
+  if (a == 1 & b == 1) {
+    return(dunif(x))}
+  
+  result <- a* b * x^(a - 1)* (1 - x^a)^(b - 1)
+  return(result)
+}
+dkumaraswamy2(x = c(0.3, 0.6, 0.9))
+dunif(x = c(0.3, 0.6, 0.9))
+```
+
+3.
+```{r}
+curve(dkumaraswamy2(x), ylim = c(0, 3), col = "black")
+curve(dkumaraswamy2(x, a = 0.5, b = 0.5), ylim = c(0, 3), col = "red", add =TRUE)
+curve(dkumaraswamy2(x, a = 2, b = 5), ylim = c(0, 3), col = "blue", add =TRUE)
+```
+
+4.
+```{r}
+rkumaraswamy <- function(a, b, n) {
+  u <- runif(n) #get n unif nums
+  #inverse CDF
+  x <- (1 -(1 - u)^(1/b))^(1/a)
+  return(x)
+}
+
+samples <- rkumaraswamy(a =2, b =5, n =10000)
+head(samples)
+```
+
+```{r}
+curve(dkumaraswamy2(x), ylim = c(0, 3), col = "black")
+curve(dkumaraswamy2(x, a = 0.5, b = 0.5), ylim = c(0, 3), col = "red", add =TRUE)
+curve(dkumaraswamy2(x, a = 2, b = 5), ylim = c(0, 3), col = "blue", add =TRUE)
+
+lines(density(samples,kernel = "epanechnikov"),
+      col = "green", lwd = 2, lty = 3) #R auto sets bw
+```
+
+## Q3
+```{r}
+#Marsaglia params
+a <- 69069
+b <- 1
+M <- 2^32
+
+n <- 10000
+#empty vector
+x <- numeric(n)
+
+x[1] <- 2345 #initial seed
+
+#generate sequence
+for (i in 2:n) {
+  x[i] <- (a * x[i-1] + b) %% M #Marsaglia formula
+}
+#change to unif rand nums
+u <- x / M
+
+U <- data.frame(u1 = u[1:(n-2)],
+                u2 = u[2:(n-1)],
+                u3 = u[3:n])
+
+#special ordering ui−1 < ui+1 < ui
+event <- U$u1 < U$u3 & U$u3 < U$u2
+
+#percentage event occurs (should be 1/6)
+(sum(event) / length(event)) * 100
+```
+
+## Q4
+1. & 2.
+```{r}
+set.seed(23453144)
+
+box_muller <- function(numpairs) {
+  #unif rand nums
+  u1 <- runif(numpairs)
+  u2 <- runif(numpairs)
+  
+  theta <- 2*pi * u1
+  R <- sqrt(2 * -log(u2))
+
+  #make standard norm variables
+  x1 <- R * cos(theta)
+  x2 <- R * sin(theta)
+
+  #return both vectors 
+  return(c(x1, x2))}
+
+z <- box_muller(5000)
+length(z)
+```
+
+3.
+```{r}
+part3 <- sqrt(3) * z + 10 #variance = 3 we need s.d
+
+mean(part3)
+sd(part3)
+var(part3)
+```
+
+4.
+```{r}
+plot(density(part3), main=expression(paste("N(", mu, "=10,", sigma^2, "=3)")))
+curve(dnorm(x, mean=10, sd=sqrt(3)), add=TRUE, col="red")
+```
+
+5.
+```{r}
+biv <- replicate(10000, box_muller(1))
+dim(biv)
+
+sig <- matrix(c(2, -1, -1, 2), nrow = 2, ncol = 2)
+
+SIG12 <- chol(sig)
+SIG12
+
+MU <- c(2,3)
+
+BIV <- MU + SIG12 %*% biv
+
+dim(BIV)
+
+library(MASS)
+
+result <- kde2d(BIV[1, ],BIV[2, ])
+contour(result)
+```
+
+6.
+```{r}
+filled.contour(result)
+```
+
+
+
